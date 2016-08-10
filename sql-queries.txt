@@ -1,0 +1,282 @@
+ 
+SELECT *
+	  FROM [ohdsi].[west].[person]
+	  WHERE [person_id] IN (
+		SELECT DISTINCT [person_id]
+		  FROM [ohdsi].[west].[drug_exposure] Drug
+		  WHERE Drug.drug_concept_id IN (
+		  SELECT DISTINCT [concept_id]
+			FROM [ohdsi].[dbo].[concept] Concept
+			WHERE Concept.concept_name LIKE '%furosemide%'
+		) 
+		  AND Drug.visit_occurrence_id IS NOT NULL
+		  AND Drug.drug_exposure_end_date > '01/01/2016'
+		  AND Drug.drug_exposure_end_date < '01/08/2016'
+	)
+
+
+# extract drug_exposure
+SELECT *
+	  FROM [ohdsi].[west].[drug_exposure]
+	  WHERE [person_id] IN (
+		SELECT DISTINCT [person_id]
+		  FROM [ohdsi].[west].[drug_exposure] Drug
+		  WHERE Drug.drug_concept_id IN (
+		  SELECT DISTINCT [concept_id]
+			FROM [ohdsi].[dbo].[concept] Concept
+			WHERE Concept.concept_name LIKE '%furosemide%'
+		) 
+		  AND Drug.visit_occurrence_id IS NOT NULL
+		  AND Drug.drug_exposure_end_date > '01/01/2016'
+		  AND Drug.drug_exposure_end_date < '01/08/2016'
+	)
+
+
+# extract all the drug concepts:
+
+ 
+SELECT * 
+	FROM [ohdsi].[dbo].[concept] Concept 
+	WHERE Concept.concept_id IN (
+	SELECT [drug_concept_id]
+		  FROM [ohdsi].[west].[drug_exposure]
+		  WHERE [person_id] IN (
+			SELECT DISTINCT [person_id]
+			  FROM [ohdsi].[west].[drug_exposure] Drug
+			  WHERE Drug.drug_concept_id IN (
+			  SELECT DISTINCT [concept_id]
+				FROM [ohdsi].[dbo].[concept] Concept
+				WHERE Concept.concept_name LIKE '%furosemide%'
+			) 
+			  AND Drug.visit_occurrence_id IS NOT NULL
+			  AND Drug.drug_exposure_end_date > '01/01/2016'
+			  AND Drug.drug_exposure_end_date < '01/08/2016'
+		)
+)
+
+# extract all condition concepts:
+
+SELECT * 
+	FROM [ohdsi].[dbo].[concept] Concept 
+	WHERE Concept.concept_id IN (
+	SELECT [condition_concept_id]
+		  FROM [ohdsi].[west].[condition_occurrence]
+		  WHERE [person_id] IN (
+			SELECT DISTINCT [person_id]
+			  FROM [ohdsi].[west].[drug_exposure] Drug
+			  WHERE Drug.drug_concept_id IN (
+			  SELECT DISTINCT [concept_id]
+				FROM [ohdsi].[dbo].[concept] Concept
+				WHERE Concept.concept_name LIKE '%furosemide%'
+			) 
+			  AND Drug.visit_occurrence_id IS NOT NULL
+			  AND Drug.drug_exposure_end_date > '01/01/2016'
+			  AND Drug.drug_exposure_end_date < '01/08/2016'
+		)
+)
+
+# extract providers: (none found)
+
+SELECT * 
+	FROM [ohdsi].[west].[provider] P 
+	WHERE P.provider_id IN (
+	SELECT [provider_id]
+		  FROM [ohdsi].[west].[condition_occurrence]
+		  WHERE [person_id] IN (
+			SELECT DISTINCT [person_id]
+			  FROM [ohdsi].[west].[drug_exposure] Drug
+			  WHERE Drug.drug_concept_id IN (
+			  SELECT DISTINCT [concept_id]
+				FROM [ohdsi].[dbo].[concept] Concept
+				WHERE Concept.concept_name LIKE '%furosemide%'
+			) 
+			  AND Drug.visit_occurrence_id IS NOT NULL
+			  AND Drug.drug_exposure_end_date > '01/01/2016'
+			  AND Drug.drug_exposure_end_date < '01/08/2016'
+		)
+)
+
+
+
+# ----------- Only 10 people ------------- #
+
+SELECT *
+	FROM [ohdsi].[west].[drug_exposure]
+	WHERE person_id IN ('3732509', '5522366', '6968228', '7637713', '2670178', '3242871', '3293020', '4950819', '6586546', '6946666')
+
+SELECT *
+	FROM [ohdsi].[west].[condition_occurrence]
+	WHERE person_id IN ('3732509', '5522366', '6968228', '7637713', '2670178', '3242871', '3293020', '4950819', '6586546', '6946666')
+
+SELECT *
+	FROM [ohdsi].[west].[visit_occurrence]
+	WHERE person_id IN ('3732509', '5522366', '6968228', '7637713', '2670178', '3242871', '3293020', '4950819', '6586546', '6946666')
+
+SELECT * 
+	FROM [ohdsi].[dbo].[concept] Concept
+	WHERE Concept.concept_id IN (
+		SELECT [drug_concept_id]
+			FROM [ohdsi].[west].[drug_exposure]
+			WHERE person_id IN ('3732509', '5522366', '6968228', '7637713', '2670178', '3242871', '3293020', '4950819', '6586546', '6946666')
+	)
+
+SELECT * 
+	FROM [ohdsi].[dbo].[concept] Concept
+	WHERE Concept.concept_id IN (
+		SELECT 
+			FROM [ohdsi].[west].[condition_occurrence]
+			WHERE person_id IN ('3732509', '5522366', '6968228', '7637713', '2670178', '3242871', '3293020', '4950819', '6586546', '6946666')
+	)
+	
+
+# insert person
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/person.csv" AS row
+CREATE (:Person {person_id: row.person_id, year_of_birth: row.year_of_birth, month_of_birth: row.month_of_birth, day_of_birth: row.day_of_birth, gender: row.gender_source_value, race: row.race_source_value, ethnicity: row.ethnicity_source_value});
+
+# insert drug_exposure
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/drug_exposure.txt" AS row
+CREATE (d:DrugExposure {drug_exposure_id: row.drug_exposure_id, drug_concept_id: row.drug_concept_id, drug_exposure_start_date: row.drug_exposure_start_date, drug_exposure_end_date: row.drug_exposure_end_date, refills: row.refills, quantity: row.quantity, days_supply: row.days_supply})
+
+# insert condition_occurrence
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/condition_occurrence.txt" AS row
+CREATE (d:ConditionOccurrence {condition_occurrence_id: row.condition_occurrence_id, condition_start_date: row.condition_start_date, condition_end_date: row.condition_end_date, condition_source_value: row.condition_source_value})
+
+# insert visit_occurrence
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/visit_occurrence.txt" AS row
+CREATE (d:VisitOccurrence {visit_occurrence_id: row.visit_occurrence_id, visit_start_date: row.visit_start_date, visit_end_date: row.visit_end_date, visit_source_value: row.visit_source_value})
+
+# insert condition_concept
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/condition_concept.txt" AS row
+CREATE (d:Concept {concept_id: row.concept_id, concept_name: row.concept_name, domain_id: row.domain_id, vocabulary_id: row.vocabulary_id, concept_class_id: row.concept_class_id, concept_code:row.concept_code, valid_start_date:row.valid_start_date, valid_end_date:row.valid_end_date})
+
+# insert drug_concept
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/drug_concept.txt" AS row
+CREATE (d:Concept {concept_id: row.concept_id, concept_name: row.concept_name, domain_id: row.domain_id, vocabulary_id: row.vocabulary_id, concept_class_id: row.concept_class_id, concept_code:row.concept_code, valid_start_date:row.valid_start_date, valid_end_date:row.valid_end_date})
+
+CREATE INDEX ON :Person(person_id);
+CREATE INDEX ON :DrugExposure(drug_exposure_id);
+CREATE INDEX ON :ConditionOccurrence(condition_occurrence_id);
+CREATE INDEX ON :VisitOccurrence(visit_occurrence_id);
+CREATE INDEX ON :Concept(concept_id);
+
+
+#INSERT RELATIONSHIPS
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/test/drug_exposure.csv" AS row
+MATCH (p:Person {person_id: row.person_id})
+MATCH (d:DrugExposure {drug_exposure_id: row.drug_exposure_id})
+MERGE (p)-[:RECEIVED_DRUG]->(d);
+
+# Person -[:DIAGNOSED_WITH_CONDITION]-> ConditionOccurrence
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/test/condition_occurrence.csv" AS row
+MATCH (p:Person {person_id: row.person_id})
+MATCH (c:ConditionOccurrence {condition_occurrence_id: row.condition_occurrence_id})
+MERGE (p)-[:DIAGNOSED_WITH_CONDITION]->(c);
+
+# DrugExposure -[:HAS_CONCEPT]-> Concept
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/test/drug_exposure.csv" AS row
+MATCH (drug:DrugExposure {drug_exposure_id: row.drug_exposure_id})
+MATCH (concept:Concept {concept_id: row.drug_concept_id})
+MERGE (drug)-[:HAS_CONCEPT]->(concept);
+
+# ConditionOccurrence -[:HAS_CONCEPT]-> Concept
+USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS FROM "file:///c:/test/condition_occurrence.csv" AS row
+MATCH (condition:ConditionOccurrence {condition_occurrence_id: row.condition_occurrence_id})
+MATCH (concept:Concept {concept_id: row.condition_concept_id})
+MERGE (condition)-[:HAS_CONCEPT]->(concept);
+
+
+
+
+# doesn't work:
+INTO OUTFILE 'C:/Users/my2482/Documents/ohdsi_csv_files/condition_concept.csv' 
+FIELDS ENCLOSED BY '"' 
+TERMINATED BY ';' 
+ESCAPED BY '"' 
+LINES TERMINATED BY '\r\n';
+# DOES WORK: export to file in MySQL management tool, use custom delimiter '|' and it will export with delimiter '\t' even though you specified a fucking pipe but at least it works. Save as .txt, cypher will still take it. This takes care of confusion with commas inside text.
+
+
+
+
+# NEW PROJECT -- DIABETES PROGRESSION
+
+// set up (:Person)-[:DIAGNOSED_WITH]->(:Concept)
+// only takes min start date
+match (p:Person {person_id: "2851389"})--(c:ConditionOccurrence)--(con:Concept) WITH p.person_id as people, con.concept_id as concepts, min(c.condition_start_date) as start_date  ORDER BY  start_date, concepts
+MATCH (p1:Person {person_id: people})
+MATCH (c2:Concept {concept_id: concepts})
+MERGE (p1)-[:DIAGNOSED_WITH {start_date: start_date}]->(c2)
+
+// touched? Need this or no?
+match (p:Person {person_id: "2851389"})-[d:DIAGNOSED_WITH]->(con:Concept)
+SET con.touched = FALSE
+
+
+match (p:Person {person_id: "2851389"})-[d:DIAGNOSED_WITH]->(c:Concept) WITH p.person_id AS person_id, d AS diagnoses ORDER BY d.start_date
+WITH collect(diagnoses) as ordered_diagnoses, person_id as person_id
+UNWIND ordered_diagnoses as diagnosis
+MATCH (:Person {person_id: person_id})-[diagnosis]->(c1:Concept)
+SET diagnosis.touched = TRUE
+WITH person_id, c1, diagnosis
+MATCH (:Person {person_id: person_id})-[d2:DIAGNOSED_WITH {touched: FALSE}]->(c2:Concept) WHERE d2.start_date >= diagnosis.start_date
+SET d2.touched = TRUE
+WITH min(d2.start_date) as min_start_date2, person_id, c1, diagnosis
+MATCH (:Person {person_id: person_id})-[:DIAGNOSED_WITH {start_date: min_start_date2}]->(c2:Concept)
+MERGE (c1)-[:NEXT {person_id: person_id, start_date1: diagnosis.start_date, start_date2: min_start_date2}]->(c2)
+
+
+match (p:Person {person_id: "2851389"})-[d:DIAGNOSED_WITH]->(c:Concept) WITH p.person_id AS person_id, d AS diagnoses ORDER BY d.start_date
+WITH collect(diagnoses) as ordered_diagnoses, person_id as person_id
+UNWIND ordered_diagnoses as diagnosis
+MATCH (:Person {person_id: person_id})-[diagnosis]->(c1:Concept)
+MATCH (:Person {person_id: person_id})-[d2:DIAGNOSED_WITH]->(c2:Concept) WHERE d2.start_date >= diagnosis.start_date AND d2 <> diagnosis
+WITH min(d2.start_date) AS min_start_date2, diagnosis, person_id, c1
+MATCH (:Person {person_id: person_id})-[:DIAGNOSED_WITH {start_date: min_start_date2}]->(c2:Concept)
+MERGE (c1)-[:NEXT {person_id: person_id, start_date1: diagnosis.start_date, start_date2: min_start_date2}]->(c2)
+
+
+# New approach - make [:NEXT] relationship between Concepts (after creating Person to Concept relationship) and then pare down relationships
+
+
+match (p:Person {person_id: "2851389"})-[d:DIAGNOSED_WITH]->(c:Concept) WITH p.person_id AS person_id, d AS diagnoses ORDER BY d.start_date
+WITH collect(diagnoses) as ordered_diagnoses, person_id as person_id
+UNWIND ordered_diagnoses as diagnosis
+MATCH (:Person {person_id: person_id})-[diagnosis]->(c1:Concept)
+MATCH (:Person {person_id: person_id})-[d2:DIAGNOSED_WITH]->(c2:Concept) WHERE d2.start_date > diagnosis.start_date AND d2 <> diagnosis
+MERGE (c1)-[:NEXT {person_id: person_id, start_date1: diagnosis.start_date, start_date2: d2.start_date}]->(c2)
+
+//doesn't do anything :(
+match (p:Person {person_id: "2851389"})-[d:DIAGNOSED_WITH]->(c:Concept) WITH p.person_id AS person_id, d AS diagnoses 
+WITH collect(diagnoses) as d, person_id as person_id
+UNWIND d as diagnosis
+MATCH (:Person {person_id: person_id})-[diagnosis]->(c1:Concept)-[n:NEXT]->(c2:Concept) 
+WITH min(n.start_date2) AS min_start_date, diagnosis, c1, c2, person_id
+MATCH (:Person {person_id: person_id})-[diagnosis]->(c1:Concept)-[n:NEXT]->(c2:Concept) WHERE n.start_date2 <> min_start_date 
+DETACH DELETE n
+
+
+START n=node(*)
+MATCH p=(n)-[rels:NEXT*]->(m) 
+WHERE ALL (rel IN rels 
+  WHERE rel.person_id="2851389") 
+WITH COLLECT(p) AS paths, MAX(length(p)) AS maxLength 
+RETURN FILTER(path IN paths 
+  WHERE length(path)= maxLength) AS longestPaths
+
+
+match (p:Person {person_id: \""+person['p.person_id']+"\"})--(c:ConditionOccurrence)--(con:Concept) WITH p.person_id as person, con.concept_id as concepts, min(c.condition_start_date) as start_date  ORDER BY  start_date, concepts MATCH (p1:Person {person_id: person}) MATCH (c2:Concept {concept_id: concepts}) MERGE (p1)-[:DIAGNOSED_WITH {start_date: start_date}]->(c2)
+
+
+# Diabetes SQL queries
+
+ 
